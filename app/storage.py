@@ -27,7 +27,7 @@ def reset_daily_data():
 # Сохраняет данные пользователей в файл
 def save_data():
     try:
-        with open("users_data.json", "w", encoding="utf-8") as file:
+        with open("data/users_data.json", "w", encoding="utf-8") as file:
             json.dump(users, file, ensure_ascii=False, indent=4)
         print("Данные успешно сохранены.")
     except Exception as e:
@@ -37,7 +37,7 @@ def save_data():
 def load_data():
     global users
     try:
-        with open("users_data.json", "r", encoding="utf-8") as file:
+        with open("data/users_data.json", "r", encoding="utf-8") as file:
             users = json.load(file)
             print(f"Данные успешно загружены: {users}")
             reset_daily_data()  # Сброс данных за новый день
