@@ -51,8 +51,8 @@ async def cmd_start(message: Message):
         )
 
 # Отображает главное меню и информацию о текущем профиле.
-@router.message(F.text == "Главное меню")
-async def handle_main_menu(message: Message):
+@router.message(Command("main_menu"))
+async def log_main_menu(message: Message):
     commands_info = get_commands_info()
     profile_info = await get_profile_info(message.from_user.id)
 
@@ -246,8 +246,13 @@ async def handle_workout_type(callback: CallbackQuery):
 async def handle_log_workout_button(message: Message):
     await log_workout(message)
 
+# Перенаправляет на главное меню
+@router.message(F.text == "Главное меню")
+async def handle_main_menu(message: Message):
+    await log_main_menu(message)
+
 # Показывает подтверждение перед удалением данных пользователя
-@router.message(F.text == "Удалить данные")
+@router.message(Command("delete_data"))
 async def delete_data_text(message: Message):
     await message.answer(
         "Вы уверены, что хотите удалить все данные? Это действие необратимо.",
@@ -275,7 +280,7 @@ async def cancel_action(callback: CallbackQuery):
     await callback.answer()
 
 # Показывает текущий прогресс пользователя по воде и калориям с графиками
-@router.message(F.text == "Проверить прогресс")
+@router.message(Command("check_progress"))
 async def check_progress(message: Message):
     try:
         user = get_user_data(message.from_user.id)
@@ -333,6 +338,11 @@ async def handle_log_water_button(message: Message, state: FSMContext):
 async def handle_log_food_button(message: Message, state: FSMContext):
     await state.set_state(FoodLogging.waiting_for_food)
     await message.answer("Введите название продукта (eng):")
+
+# Перенаправляет на генерацию рекомендаций
+@router.message(F.text == "Рекомендации")
+async def handle_recommend_button(message: Message):
+    await recommend(message)
 
 # Перенаправляет на генерацию рекомендаций
 @router.message(F.text == "Рекомендации")
