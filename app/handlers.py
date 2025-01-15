@@ -1,12 +1,13 @@
+import os
 from aiogram import F, Router
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from app.keyboards import main_menu, workout_types, confirmation_keyboard
 from app.storage import users
-from app.utils import calculate_goals, get_user_data
+from app.utils import calculate_goals, get_user_data, generate_progress_graph
 from app.api import get_weather, get_food_info
 
 router = Router()
@@ -24,9 +25,10 @@ async def cmd_start(message: Message):
         "Привет! Я помогу отслеживать воду и калории.\n\n"
         "🔧 Основные команды:\n"
         "/set_profile - Настройка профиля\n"
-        "/log_water <количество> - Записать потребление воды (в мл)\n"
+        "/log_water <кол-во мл> - Записать потребление воды (в мл)\n"
         "/log_food <название продукта> - Записать потребление пищи\n"
         "/log_workout - Записать тренировку\n"
+        "/check_progress - Проверить прогресс\n"
         "/delete_data - Удалить все данные\n\n"
         "Выберите действие с помощью меню ниже или отправьте команду вручную.",
         reply_markup=main_menu
@@ -149,15 +151,20 @@ async def handle_workout_type(callback: CallbackQuery):
 
     try:
         user = get_user_data(callback.from_user.id)
-        calories_burned = duration * 10  # Условная формула
-        user["burned_calories"] = user.get("burned_calories", 0) + calories_burned
-        water_loss = (duration // 30) * 200
-        user["logged_water"] = user.get("logged_water", 0) - water_loss
+
+        # Увеличение целей после тренировки
+        extra_water = (duration // 30) * 200
+        extra_calories = duration * 10
+        user["extra_water"] = user.get("extra_water", 0) + extra_water
+        user["extra_calories"] = user.get("extra_calories", 0) + extra_calories
+
+        # Сожженные калории
+        user["burned_calories"] = user.get("burned_calories", 0) + extra_calories
 
         await callback.message.answer(
-            f"🏃‍♂️ {workout_type.capitalize()} ({duration} минут) — {calories_burned} ккал сожжено.\n"
-            f"Не забудьте выпить дополнительно {water_loss} мл воды. "
-            f"Общее сожжённое: {user['burned_calories']} ккал."
+            f"🏃‍♂️ {workout_type.capitalize()} ({duration} минут):\n"
+            f"🔥 Сожжено: {extra_calories} ккал.\n"
+            f"💧 Потребность в воде увеличена на {extra_water} мл."
         )
         await callback.answer()
     except ValueError as e:
@@ -180,3 +187,51 @@ async def confirm_action(callback: CallbackQuery):
 async def cancel_action(callback: CallbackQuery):
     await callback.message.answer("Действие отменено.")
     await callback.answer()
+
+@router.message(F.text == "Проверить прогресс")
+async def check_progress(message: Message):
+    try:
+        user = get_user_data(message.from_user.id)
+
+        water_goal = user["water_goal"] + user.get("extra_water", 0)
+        calorie_goal = user["calorie_goal"] + user.get("extra_calories", 0)
+
+        logged_water = user.get("logged_water", 0)
+        logged_calories = user.get("logged_calories", 0)
+        burned_calories = user.get("burned_calories", 0)
+
+        file_path = f"progress_{message.from_user.id}.png"
+        generate_progress_graph(user, file_path)
+
+        water_progress = f"💧 Выпито: {logged_water} мл из {water_goal} мл."
+        calorie_progress = (
+            f"🍎 Потреблено: {logged_calories} ккал из {calorie_goal} ккал.\n"
+            f"🔥 Сожжено: {burned_calories} ккал."
+        )
+
+        await message.answer(f"📊 Ваш прогресс:\n\n{water_progress}\n{calorie_progress}")
+        
+        photo = FSInputFile(file_path)
+        await message.answer_photo(photo)
+
+    except ValueError as e:
+        await message.answer(str(e))
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+@router.message(F.text == "Настроить профиль")
+async def handle_setup_profile_button(message: Message, state: FSMContext):
+    await set_profile(message, state)
+
+@router.message(F.text == "Записать тренировку")
+async def handle_log_workout_button(message: Message):
+    await log_workout(message)
+
+@router.message(F.text == "Проверить прогресс")
+async def handle_check_progress_button(message: Message):
+    await check_progress(message)
+
+@router.message(F.text == "Удалить данные")
+async def handle_delete_data_button(message: Message):
+    await delete_data_text(message)

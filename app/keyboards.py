@@ -3,11 +3,9 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 # Главное меню
 main_menu = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="Записать воду")],
-        [KeyboardButton(text="Записать еду")],
-        [KeyboardButton(text="Записать тренировку")],
-        [KeyboardButton(text="Проверить прогресс")],
-        [KeyboardButton(text="Удалить данные")],
+        [KeyboardButton(text="Настроить профиль"), KeyboardButton(text="Записать воду")],
+        [KeyboardButton(text="Проверить прогресс"), KeyboardButton(text="Записать еду")],
+        [KeyboardButton(text="Удалить данные"), KeyboardButton(text="Записать тренировку")],
     ],
     resize_keyboard=True,
     input_field_placeholder="Выберите действие"
