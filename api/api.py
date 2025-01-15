@@ -1,7 +1,7 @@
 import requests
 from config import WEATHER_TOKEN
 
-# Получение текущей температуры для указанного города с помощью OpenWeatherMap API
+# Получение температуры города с помощью OpenWeatherMap API
 def get_weather(city):
     url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={WEATHER_TOKEN}&units=metric"
     response = requests.get(url)
@@ -10,7 +10,7 @@ def get_weather(city):
         return data.get("main", {}).get("temp")
     return None
 
-# Получение информации о продукте с помощью OpenFoodFacts API
+# Поиск информации о продукте с помощью OpenFoodFacts API
 def get_food_info(product_name):
     url = f"https://world.openfoodfacts.org/cgi/search.pl?action=process&search_terms={product_name}&json=true"
     response = requests.get(url)

@@ -11,7 +11,7 @@ daily_reset_keys = [
     "burned_calories",
 ]
 
-# Сбрасывает данные за день для всех пользователей
+# Сбрасывает данные за день
 def reset_daily_data():
     if not users:
         return
@@ -24,7 +24,7 @@ def reset_daily_data():
             data[key] = 0
         data["last_updated"] = current_date
 
-# Сохраняет данные в файл
+# Сохраняет данные пользователей в файл
 def save_data():
     try:
         with open("users_data.json", "w", encoding="utf-8") as file:
@@ -33,7 +33,7 @@ def save_data():
     except Exception as e:
         print(f"Ошибка при сохранении данных: {e}")
 
-# Загружает данные из файла
+# Загружает данные пользователей из файла
 def load_data():
     global users
     try:

@@ -1,4 +1,5 @@
 import os
+import random
 from datetime import datetime
 from aiogram import F, Router
 from aiogram.types import Message, CallbackQuery, FSInputFile
@@ -6,11 +7,12 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
+import app.storage
 from app.utils import *
 from app.keyboards import main_menu, workout_types, confirmation_keyboard
-import app.storage
 from app.storage import save_data
-from app.api import get_weather, get_food_info
+from api.api import get_weather, get_food_info
+from data.recommendations import low_calorie_foods, workout_recommendations
 
 
 router = Router()
@@ -28,6 +30,7 @@ class WaterLogging(StatesGroup):
 class FoodLogging(StatesGroup):
     waiting_for_food = State()
 
+# Команда для запуска бота
 @router.message(Command("start"))
 async def cmd_start(message: Message):
     commands_info = get_commands_info()
@@ -47,7 +50,7 @@ async def cmd_start(message: Message):
             parse_mode="HTML"
         )
 
-
+# Отображает главное меню и информацию о текущем профиле.
 @router.message(F.text == "Главное меню")
 async def handle_main_menu(message: Message):
     commands_info = get_commands_info()
@@ -67,20 +70,36 @@ async def handle_main_menu(message: Message):
             parse_mode="HTML"
         )
 
+# Команда для настройки профиля
 @router.message(Command("set_profile"))
 async def set_profile(message: Message, state: FSMContext):
+    user_id = str(message.from_user.id)
+    
+    if user_id in app.storage.users:
+        await message.answer(
+            "Профиль пользователя уже существует. \n\n"
+            "Если вы хотите обновить данные, сначала <b>удалите профиль</b> с помощью команды /delete_data или кнопки в меню.",
+            parse_mode="HTML"
+        )
+        return
+    
     await state.set_state(ProfileSetup.weight)
     await message.answer("Введите ваш вес (в кг):")
 
+# Обработка ввода веса пользователя
 @router.message(ProfileSetup.weight)
 async def set_weight(message: Message, state: FSMContext):
     try:
-        await state.update_data(weight=int(message.text))
+        weight = int(message.text)
+        if weight <= 0:
+            raise ValueError("Вес должен быть больше 0.")
+        await state.update_data(weight=weight)
         await state.set_state(ProfileSetup.height)
         await message.answer("Введите ваш рост (в см):")
-    except ValueError:
-        await message.answer("Пожалуйста, введите число.")
+    except ValueError as e:
+        await message.answer(str(e))
 
+# Обработка ввода роста пользователя
 @router.message(ProfileSetup.height)
 async def set_height(message: Message, state: FSMContext):
     try:
@@ -90,6 +109,7 @@ async def set_height(message: Message, state: FSMContext):
     except ValueError:
         await message.answer("Пожалуйста, введите число.")
 
+# Обработка ввода возраста пользователя
 @router.message(ProfileSetup.age)
 async def set_age(message: Message, state: FSMContext):
     try:
@@ -99,15 +119,14 @@ async def set_age(message: Message, state: FSMContext):
     except ValueError:
         await message.answer("Пожалуйста, введите число.")
 
+# Обработка ввода времени активености пользователя
 @router.message(ProfileSetup.activity)
 async def set_activity(message: Message, state: FSMContext):
-    try:
-        await state.update_data(activity=int(message.text))
-        await state.set_state(ProfileSetup.city)
-        await message.answer("В каком городе вы находитесь?")
-    except ValueError:
-        await message.answer("Пожалуйста, введите число.")
+    await state.update_data(activity=int(message.text))
+    await state.set_state(ProfileSetup.city)
+    await message.answer("В каком городе вы находитесь? (eng)")
 
+# Обработка ввода города пользователя
 @router.message(ProfileSetup.city)
 async def set_city(message: Message, state: FSMContext):
     await state.update_data(city=message.text)
@@ -135,13 +154,13 @@ async def set_city(message: Message, state: FSMContext):
         "last_updated": datetime.now().date().isoformat(),
         **calculate_goals(data["weight"], data["height"], data["age"], data["activity"], temperature),
     }
-    
+
     save_data()
 
     await state.clear()
     await message.answer("Профиль настроен! Данные о погоде успешно учтены.", reply_markup=main_menu)
 
-# Команда /log_water
+# Обработка команды для записи количества выпитой воды
 @router.message(Command("log_water"))
 async def log_water(message: Message):
     args = message.text.split(maxsplit=1)
@@ -156,16 +175,19 @@ async def log_water(message: Message):
     try:
         user = get_user_data(message.from_user.id)
         user["logged_water"] = user.get("logged_water", 0) + amount
+
+        save_data()
+
         await message.answer(f"💧 Записано: {amount} мл. Выпито: {user['logged_water']} мл из {user['water_goal']} мл.")
     except ValueError as e:
         await message.answer(str(e))
 
-# Команда /log_food
+# Обработка команды для записи потребленных калорий
 @router.message(Command("log_food"))
 async def log_food(message: Message):
     args = message.text.split(maxsplit=1)
     if len(args) != 2:
-        await message.answer("Используйте: /log_food <название продукта>")
+        await message.answer("Используйте: /log_food <название продукта (eng)>")
         return
 
     product_name = args[1]
@@ -178,6 +200,9 @@ async def log_food(message: Message):
         user = get_user_data(message.from_user.id)
         calories = food_info["calories"]
         user["logged_calories"] = user.get("logged_calories", 0) + calories
+        
+        save_data()
+
         await message.answer(
             f"🍎 {food_info['name']} содержит {calories} ккал на 100 г. Записано в ваш дневник. "
             f"Всего потреблено: {user['logged_calories']} ккал из {user['calorie_goal']} ккал."
@@ -185,11 +210,12 @@ async def log_food(message: Message):
     except ValueError as e:
         await message.answer(str(e))
 
-# Команда /log_workout
+# Начинает процесс логирования тренировки
 @router.message(Command("log_workout"))
 async def log_workout(message: Message):
     await message.answer("Выберите тип тренировки:", reply_markup=workout_types)
 
+# Обработка выбора тренировки
 @router.callback_query(F.data.startswith("workout_"))
 async def handle_workout_type(callback: CallbackQuery):
     workout_type = callback.data.split("_")[1]
@@ -198,14 +224,13 @@ async def handle_workout_type(callback: CallbackQuery):
     try:
         user = get_user_data(callback.from_user.id)
 
-        # Увеличение целей после тренировки
         extra_water = (duration // 30) * 200
         extra_calories = duration * 10
         user["extra_water"] = user.get("extra_water", 0) + extra_water
         user["extra_calories"] = user.get("extra_calories", 0) + extra_calories
-
-        # Сожженные калории
         user["burned_calories"] = user.get("burned_calories", 0) + extra_calories
+
+        save_data()
 
         await callback.message.answer(
             f"🏃‍♂️ {workout_type.capitalize()} ({duration} минут):\n"
@@ -216,6 +241,12 @@ async def handle_workout_type(callback: CallbackQuery):
     except ValueError as e:
         await callback.answer(str(e))
 
+# Перенаправляет на логирование тренировки
+@router.message(F.text == "Записать тренировку")
+async def handle_log_workout_button(message: Message):
+    await log_workout(message)
+
+# Показывает подтверждение перед удалением данных пользователя
 @router.message(F.text == "Удалить данные")
 async def delete_data_text(message: Message):
     await message.answer(
@@ -223,23 +254,27 @@ async def delete_data_text(message: Message):
         reply_markup=confirmation_keyboard
     )
 
+# Удаляет данные пользователя после подтверждения
 @router.callback_query(F.data == "confirm")
 async def confirm_action(callback: CallbackQuery):
     user_id = str(callback.from_user.id)
     if user_id in app.storage.users:
         app.storage.users.pop(user_id, None)
+
         save_data()
+
         await callback.message.answer("Ваши данные удалены.")
     else:
         await callback.message.answer("У вас нет данных для удаления.")
     await callback.answer()
 
-
+# Отменяет процесс удаления данных
 @router.callback_query(F.data == "cancel")
 async def cancel_action(callback: CallbackQuery):
     await callback.message.answer("Действие отменено.")
     await callback.answer()
 
+# Показывает текущий прогресс пользователя по воде и калориям с графиками
 @router.message(F.text == "Проверить прогресс")
 async def check_progress(message: Message):
     try:
@@ -272,27 +307,39 @@ async def check_progress(message: Message):
         if os.path.exists(file_path):
             os.remove(file_path)
 
-@router.message(F.text == "Настроить профиль")
-async def handle_setup_profile_button(message: Message, state: FSMContext):
-    await set_profile(message, state)
-
-@router.message(F.text == "Записать тренировку")
-async def handle_log_workout_button(message: Message):
-    await log_workout(message)
-
+# Перенаправляет на проверку прогресса
 @router.message(F.text == "Проверить прогресс")
 async def handle_check_progress_button(message: Message):
     await check_progress(message)
 
+# Перенаправляет на настройку профиля
+@router.message(F.text == "Настроить профиль")
+async def handle_setup_profile_button(message: Message, state: FSMContext):
+    await set_profile(message, state)
+
+# Перенаправляет на процесс удаления данных
 @router.message(F.text == "Удалить данные")
 async def handle_delete_data_button(message: Message):
     await delete_data_text(message)
 
+# Перенаправляет на ввод количества воды
 @router.message(F.text == "Записать воду")
 async def handle_log_water_button(message: Message, state: FSMContext):
     await state.set_state(WaterLogging.waiting_for_amount)
     await message.answer("Введите количество воды (в мл):")
 
+# Перенаправляет на ввод названия продукта
+@router.message(F.text == "Записать еду")
+async def handle_log_food_button(message: Message, state: FSMContext):
+    await state.set_state(FoodLogging.waiting_for_food)
+    await message.answer("Введите название продукта (eng):")
+
+# Перенаправляет на генерацию рекомендаций
+@router.message(F.text == "Рекомендации")
+async def handle_recommend_button(message: Message):
+    await recommend(message)
+
+# Сохраняет введенное пользователем количество воды
 @router.message(WaterLogging.waiting_for_amount)
 async def log_water_amount(message: Message, state: FSMContext):
     try:
@@ -303,16 +350,15 @@ async def log_water_amount(message: Message, state: FSMContext):
     try:
         user = get_user_data(message.from_user.id)
         user["logged_water"] = user.get("logged_water", 0) + amount
+
+        save_data()
+
         await message.answer(f"💧 Записано: {amount} мл. Выпито: {user['logged_water']} мл из {user['water_goal']} мл.")
         await state.clear()
     except ValueError as e:
         await message.answer(str(e))
 
-@router.message(F.text == "Записать еду")
-async def handle_log_food_button(message: Message, state: FSMContext):
-    await state.set_state(FoodLogging.waiting_for_food)
-    await message.answer("Введите название продукта:")
-
+# Сохраняет введенные пользователем данные о потребленной еде
 @router.message(FoodLogging.waiting_for_food)
 async def log_food_entry(message: Message, state: FSMContext):
     product_name = message.text.strip()
@@ -326,6 +372,9 @@ async def log_food_entry(message: Message, state: FSMContext):
         user = get_user_data(message.from_user.id)
         calories = food_info["calories"]
         user["logged_calories"] = user.get("logged_calories", 0) + calories
+
+        save_data()
+
         await message.answer(
             f"🍎 {food_info['name']} содержит {calories} ккал на 100 г. Записано в ваш дневник. "
             f"Всего потреблено: {user['logged_calories']} ккал из {user['calorie_goal']} ккал."
@@ -333,3 +382,20 @@ async def log_food_entry(message: Message, state: FSMContext):
         await state.clear()
     except ValueError:
         await message.answer("Ошибка при обработке данных. Пожалуйста, попробуйте снова.")
+
+# Генерирует рекомендации по продуктам с низкой калорийностью и тренировкам
+@router.message(Command("recommend"))
+async def recommend(message: Message):
+    food = random.choice(low_calorie_foods)
+    food_recommendation = (
+        f"🍎 Рекомендуем продукт с низкой калорийностью:\n"
+        f"{food['name']} ({food['calories']} ккал на 100 г)."
+    )
+
+    workout = random.choice(workout_recommendations)
+    workout_recommendation = (
+        f"🏋️‍♂️ Попробуйте тренировку для достижения целей:\n"
+        f"{workout['type']} (сжигает около {workout['calories_burned']} ккал за 30 минут)."
+    )
+
+    await message.answer(f"{food_recommendation}\n\n{workout_recommendation}")

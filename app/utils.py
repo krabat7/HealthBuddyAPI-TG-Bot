@@ -1,17 +1,20 @@
 import app.storage
 import matplotlib.pyplot as plt
 
+# Рассчитывает цели по воде и калориям
 def calculate_goals(weight, height, age, activity, temperature):
     water = weight * 30 + (500 if activity > 30 else 0) + (500 if temperature > 25 else 0)
     calories = 10 * weight + 6.25 * height - 5 * age + activity * 5
     return {"water_goal": water, "calorie_goal": calories}
 
+# Получение данных пользователя
 def get_user_data(user_id):
     user = app.storage.users.get(str(user_id))
     if not user:
         raise ValueError("Сначала настройте профиль с помощью команды /set_profile.")
     return user
 
+# Генерация графиков прогресса пользователя
 def generate_progress_graph(user_data, file_path="progress.png"):
     try:
         water_goal = user_data["water_goal"] + user_data.get("extra_water", 0)
@@ -79,25 +82,26 @@ def generate_progress_graph(user_data, file_path="progress.png"):
         print(f"Ошибка при создании графика: {e}")
         raise
 
+# Получение списка команд для пользователя
 def get_commands_info():
     return (
         "Привет! Я помогу отслеживать воду и калории.\n\n"
         "🔧 <b>Основные команды:</b>\n"
         "/log_water &lt;кол-во мл&gt; - Записать потребление воды (в мл)\n"
-        "/log_food &lt;название продукта&gt; - Записать потребление пищи\n"
+        "/log_food &lt;название продукта (eng)&gt; - Записать потребление пищи\n"
         "/log_workout - Записать тренировку\n"
         "/check_progress - Проверить прогресс\n"
+        "/recommend - Рекомендации продуктов и тренировок\n"
         "/delete_data - Удалить все данные\n\n"
         "Выберите действие с помощью меню ниже или отправьте команду вручную."
     )
 
-
+# Получение информации о профиле пользователя
 async def get_profile_info(user_id):
     user = app.storage.users.get(str(user_id))
     if not user:
         return None
 
-    # Сформируйте полную информацию о профиле
     profile_info = (
         f"👤 <b>Ваш профиль:</b>\n"
         f"Вес: {user['weight']} кг\n"

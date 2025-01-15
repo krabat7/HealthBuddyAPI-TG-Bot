@@ -10,7 +10,7 @@ async def main():
     dp = Dispatcher()
 
     try:
-        load_data()
+        load_data()  # Загрузка данных пользователей
         dp.include_router(router)
 
         print("Бот запущен.")
