@@ -1,4 +1,4 @@
-from app.storage import users
+import app.storage
 import matplotlib.pyplot as plt
 
 def calculate_goals(weight, height, age, activity, temperature):
@@ -7,7 +7,7 @@ def calculate_goals(weight, height, age, activity, temperature):
     return {"water_goal": water, "calorie_goal": calories}
 
 def get_user_data(user_id):
-    user = users.get(user_id)
+    user = app.storage.users.get(str(user_id))
     if not user:
         raise ValueError("Сначала настройте профиль с помощью команды /set_profile.")
     return user
@@ -78,3 +78,40 @@ def generate_progress_graph(user_data, file_path="progress.png"):
     except Exception as e:
         print(f"Ошибка при создании графика: {e}")
         raise
+
+def get_commands_info():
+    return (
+        "Привет! Я помогу отслеживать воду и калории.\n\n"
+        "🔧 <b>Основные команды:</b>\n"
+        "/log_water &lt;кол-во мл&gt; - Записать потребление воды (в мл)\n"
+        "/log_food &lt;название продукта&gt; - Записать потребление пищи\n"
+        "/log_workout - Записать тренировку\n"
+        "/check_progress - Проверить прогресс\n"
+        "/delete_data - Удалить все данные\n\n"
+        "Выберите действие с помощью меню ниже или отправьте команду вручную."
+    )
+
+
+async def get_profile_info(user_id):
+    user = app.storage.users.get(str(user_id))
+    if not user:
+        return None
+
+    # Сформируйте полную информацию о профиле
+    profile_info = (
+        f"👤 <b>Ваш профиль:</b>\n"
+        f"Вес: {user['weight']} кг\n"
+        f"Рост: {user['height']} см\n"
+        f"Возраст: {user['age']} лет\n"
+        f"Активность: {user['activity']} минут/день\n"
+        f"Город: {user['city']}\n"
+        f"Цель по воде: {user['water_goal']} мл\n"
+        f"Цель по калориям: {user['calorie_goal']} ккал\n"
+        f"Выпито воды: {user['logged_water']} мл\n"
+        f"Потреблено калорий: {user['logged_calories']} ккал\n"
+        f"Дополнительная цель по воде: {user['extra_water']} мл\n"
+        f"Дополнительная цель по калориям: {user['extra_calories']} ккал\n"
+        f"Сожжено калорий: {user['burned_calories']} ккал\n"
+        f"Последнее обновление: {user['last_updated']}"
+    )
+    return profile_info
