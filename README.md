@@ -63,7 +63,7 @@
 4. **`logs/`**
    - `bot.log` — Логи работы бота.
 5. **`.env`**
-   - Конфигурация токенов (BOT_TOKEN, WEATHER_TOKEN).
+   - Конфигурация токенов (BOT_TOKEN, WEATHER_TOKEN, FOOD_TOKEN).
 6. **`Dockerfile`**
    - Конфигурация для деплоя.
 7. **`README.md`**
