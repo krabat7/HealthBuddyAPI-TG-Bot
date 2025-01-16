@@ -11,7 +11,7 @@ import app.storage
 from app.utils import *
 from app.keyboards import main_menu, workout_types, confirmation_keyboard
 from app.storage import save_data
-from api.api import get_weather, get_food_info
+from api.api import get_weather, get_calories_from_usda
 from data.recommendations import low_calorie_foods, workout_recommendations
 
 
@@ -191,7 +191,7 @@ async def log_food(message: Message):
         return
 
     product_name = args[1]
-    food_info = get_food_info(product_name)
+    food_info = get_calories_from_usda(product_name)
     if food_info is None:
         await message.answer(f"Информация о продукте '{product_name}' не найдена.")
         return
@@ -372,7 +372,7 @@ async def log_water_amount(message: Message, state: FSMContext):
 @router.message(FoodLogging.waiting_for_food)
 async def log_food_entry(message: Message, state: FSMContext):
     product_name = message.text.strip()
-    food_info = get_food_info(product_name)
+    food_info = get_calories_from_usda(product_name)
     if food_info is None:
         await message.answer(f"Информация о продукте '{product_name}' не найдена.")
         await state.clear()

@@ -1,10 +1,10 @@
 # Продукты с низкой калорийностью
 low_calorie_foods = [
-    {"name": "Coca-Cola Zero", "calories": 0.3},
-    {"name": "Italian Chopped Tomatoes", "calories": 25},
-    {"name": "Tourtel 27.5 cl Tourtel Twist Lime 0.0 DEGRE ALCOOL", "calories": 32},
-    {"name": "Dada melon", "calories": 14},
-    {"name": "Thé noir glacé, saveur pêche intense", "calories": 19}
+    {"name": "soup", "calories": 80},
+    {"name": "apple", "calories": 52},
+    {"name": "Berries, frozen", "calories": 52},
+    {"name": "broccoli", "calories": 24},
+    {"name": "kefir", "calories": 52}
 ]
 
 # Тренировки и калории

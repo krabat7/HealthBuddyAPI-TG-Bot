@@ -1,5 +1,5 @@
 import requests
-from config import WEATHER_TOKEN
+from config import WEATHER_TOKEN, FOOD_TOKEN
 
 # Получение температуры города с помощью OpenWeatherMap API
 def get_weather(city):
@@ -10,17 +10,19 @@ def get_weather(city):
         return data.get("main", {}).get("temp")
     return None
 
-# Поиск информации о продукте с помощью OpenFoodFacts API
-def get_food_info(product_name):
-    url = f"https://world.openfoodfacts.org/cgi/search.pl?action=process&search_terms={product_name}&json=true"
+# Поиск информации о продукте с помощью FoodData Central API (USDA)
+def get_calories_from_usda(product_name):
+    url = f"https://api.nal.usda.gov/fdc/v1/foods/search?query={product_name}&api_key={FOOD_TOKEN}"
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
-        products = data.get('products', [])
-        if products:
-            first_product = products[0]
+        if data.get('foods'):
+            food = data['foods'][0]
             return {
-                'name': first_product.get('product_name', 'Неизвестно'),
-                'calories': first_product.get('nutriments', {}).get('energy-kcal_100g', 0)
+                'name': food['description'],
+                'calories': next(
+                    (nutrient['value'] for nutrient in food['foodNutrients'] if nutrient['nutrientName'] == 'Energy'),
+                    'Не найдено'
+                )
             }
     return None
